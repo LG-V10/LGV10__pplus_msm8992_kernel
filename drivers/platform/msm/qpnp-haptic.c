@@ -157,6 +157,8 @@
 #define LRA_POS_FREQ_COUNT		6
 int lra_play_rate_code[LRA_POS_FREQ_COUNT];
 
+#define CALL_ALARM_TIME_THRESHOLD   800
+
 /* haptic debug register set */
 static u8 qpnp_hap_dbg_regs[] = {
 	0x0a, 0x0b, 0x0c, 0x46, 0x48, 0x4c, 0x4d, 0x4e, 0x4f, 0x51, 0x52, 0x53,
@@ -303,7 +305,8 @@ struct qpnp_hap {
 	enum qpnp_hap_high_z lra_high_z;
 	u32 timeout_ms;
 	u32 vmax_mv;
-	u32 vmax_mv_orig;
+	u32 vmax_mv_haptic;
+	u32 vmax_mv_ind;
 	u32 ilim_ma;
 	u32 sc_deb_cycles;
 	u32 int_pwm_freq_khz;
@@ -1370,7 +1373,7 @@ static ssize_t qpnp_hap_amp_store(struct device *dev,
 	temp = value / QPNP_HAP_VMAX_MIN_MV;
 	/* Changed Vmax have to save to hap->vmax_mv and hap->vmax_mv_orig to
 						recover vmax that changed here */
-	hap->vmax_mv = hap->vmax_mv_orig = temp * QPNP_HAP_VMAX_MIN_MV;
+	hap->vmax_mv = hap->vmax_mv_haptic = temp * QPNP_HAP_VMAX_MIN_MV;
 	reg |= (temp << QPNP_HAP_VMAX_SHIFT);
 
 	ret = qpnp_hap_write_reg(hap, &reg, QPNP_HAP_VMAX_REG(hap->base));
@@ -1653,6 +1656,7 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 {
 	struct qpnp_hap *hap = container_of(dev, struct qpnp_hap,
 					 timed_dev);
+	int rc = 0;
 	flush_work(&hap->work);
 
 	mutex_lock(&hap->lock);
@@ -1665,6 +1669,20 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 		}
 		hap->state = 0;
 	} else {
+		if (value >= CALL_ALARM_TIME_THRESHOLD
+				&& hap->vmax_mv_ind > 0
+				&& hap->vmax_mv != hap->vmax_mv_ind){
+			hap->vmax_mv = hap->vmax_mv_ind;
+			rc = qpnp_hap_vmax_config(hap,1);
+		}
+		if (value < CALL_ALARM_TIME_THRESHOLD
+				&& hap->vmax_mv != hap->vmax_mv_haptic) {
+			hap->vmax_mv = hap->vmax_mv_haptic;
+			rc = qpnp_hap_vmax_config(hap,1);
+		}
+		if (rc)
+			pr_err("Haptics dynamic vmax modification failed\n");
+
 		value = (value > hap->timeout_ms ?
 				 hap->timeout_ms : value);
 		hap->state = 1;
@@ -2166,10 +2184,17 @@ static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 			"qcom,vmax-mv", &temp);
 	if (!rc) {
 		hap->vmax_mv = temp;
-		hap->vmax_mv_orig = hap->vmax_mv;
+		hap->vmax_mv_haptic = hap->vmax_mv;
 	} else if (rc != -EINVAL) {
 		dev_err(&spmi->dev, "Unable to read vmax\n");
 		return rc;
+	}
+
+	hap->vmax_mv_ind = hap->vmax_mv_haptic;
+	rc = of_property_read_u32(spmi->dev.of_node,
+				"qcom,vmax-mv-ind", &temp);
+	if (!rc) {
+		hap->vmax_mv_ind = temp;
 	}
 
 	hap->ilim_ma = QPNP_HAP_ILIM_MIN_MV;
