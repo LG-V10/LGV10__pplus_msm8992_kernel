@@ -37,8 +37,9 @@ struct blkcg_gq;
 
 #define BLKDEV_MIN_RQ	4
 
-#ifdef CONFIG_MACH_MSM8992_PPLUS
-#define BLKDEV_MAX_RQ	256	/* Default maximum */
+#if defined(CONFIG_MACH_MSM8992_PPLUS) || defined(CONFIG_ZEN_INTERACTIVE)
+// #define BLKDEV_MAX_RQ	256	/* Default maximum */
+#define BLKDEV_MAX_RQ	32
 #else
 #define BLKDEV_MAX_RQ	128	/* Default maximum */
 #endif
