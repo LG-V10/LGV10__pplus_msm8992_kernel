@@ -1022,17 +1022,17 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 
 	/* Continue a partial initialization */
 	if (type == HUB_INIT2 || type == HUB_INIT3) {
-		device_lock(hub->intfdev);
-
-		/* Was the hub disconnected while we were waiting? */
-		if (hub->disconnected) {
-			device_unlock(hub->intfdev);
-			kref_put(&hub->kref, hub_release);
-			return;
-		}
-		if (type == HUB_INIT2)
-			goto init2;
-		goto init3;
+				device_lock(hub->intfdev);
+		
+				/* Was the hub disconnected while we were waiting? */
+				if (hub->disconnected) {
+							device_unlock(hub->intfdev);
+							kref_put(&hub->kref, hub_release);
+							return;
+				}
+						if (type == HUB_INIT2)
+							goto init2;
+						goto init3;
 	}
 	kref_get(&hub->kref);
 
@@ -1263,8 +1263,7 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 		usb_autopm_put_interface_async(to_usb_interface(hub->intfdev));
 
 	if (type == HUB_INIT2 || type == HUB_INIT3)
-		device_unlock(hub->intfdev);
-
+			device_unlock(hub->intfdev);
 	kref_put(&hub->kref, hub_release);
 }
 
@@ -2131,6 +2130,11 @@ void usb_disconnect(struct usb_device **pdev)
 		if (hub && hub->ports[i]->child)
 			usb_disconnect(&hub->ports[i]->child);
 	}
+#if defined(CONFIG_LGE_TOUCH_CORE)
+	if (udev->bus->busnum == 1 && udev->devnum == 1)
+		touch_notify_connect(0);
+#endif
+
 
 	/* deallocate hcd/hardware state ... nuking all pending urbs and
 	 * cleaning up all state associated with the current configuration
@@ -2519,6 +2523,10 @@ int usb_new_device(struct usb_device *udev)
 	(void) usb_create_ep_devs(&udev->dev, &udev->ep0, udev);
 	usb_mark_last_busy(udev);
 	pm_runtime_put_sync_autosuspend(&udev->dev);
+#if defined(CONFIG_LGE_TOUCH_CORE)
+	if (udev->bus->busnum == 1 && udev->devnum == 1)
+		touch_notify_connect(6);
+#endif
 	return err;
 
 fail:
