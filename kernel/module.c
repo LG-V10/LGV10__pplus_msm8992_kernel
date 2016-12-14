@@ -1168,6 +1168,24 @@ static int check_version(Elf_Shdr *sechdrs,
 	unsigned int i, num_versions;
 	struct modversion_info *versions;
 
+	if (!strncmp("brcm_bt_drv", mod->name, 11))
+ 		return 1;
+	if (!strncmp("fm_drv", mod->name, 6))
+ 		return 1;
+	if (!strncmp("brcm_hci_ldisc", mod->name, 14))
+ 		return 1;
+	if (!strncmp("qdrbg_module", mod->name, 12))
+ 		return 1;
+		
+	if (!strncmp("qcrypto_module", mod->name, 14))
+ 		return 1; 	
+ 
+	if(!strncmp("texfat", mod->name, 6))
+		return 1;
+
+	if(!strncmp("ecrypt", mod->name, 6))
+		return 1;
+
 	/* Exporting module didn't supply crcs?  OK, we're already tainted. */
 	if (!crc)
 		return 1;
